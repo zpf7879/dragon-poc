@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy this to collection-config.json (gitignored) and fill in your own database's collection/field names. Any collection not listed here still works — it just falls back to showing every field and sorting by the ObjectId's embedded insert time.",
+  "activityFields": {
+    "example_collection": ["updatedAt", "createdAt"]
+  },
+  "displayFields": {
+    "example_collection": [
+      { "key": "name", "label": "Name" },
+      { "key": "status", "label": "Status" },
+      { "key": "amount", "label": "Amount" },
+      { "key": "category", "label": "Category" }
+    ]
+  }
+}

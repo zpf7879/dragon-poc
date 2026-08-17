@@ -1,0 +1,8 @@
+node_modules/
+.env
+*.log
+
+# Contain real database/collection/field names and demo data shaped after
+# them — keep the *.example.* versions in git, not these.
+collection-config.json
+simulate.js

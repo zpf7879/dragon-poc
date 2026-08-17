@@ -1,0 +1,16 @@
+{
+  "name": "mongo-node-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Connects directly to each MongoDB replica set member and displays live per-node data with primary/secondary status",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "simulate": "node simulate.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongodb": "^6.8.0"
+  }
+}
