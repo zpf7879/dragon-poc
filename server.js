@@ -12,9 +12,17 @@ const NODE_HOSTS = (process.env.MONGODB_NODE_HOSTS || '')
   .split(',')
   .map((h) => h.trim())
   .filter(Boolean);
+// Optional: path to a CA cert file, for self-hosted clusters signed by a
+// private CA (e.g. an on-prem replica set) rather than a publicly trusted
+// one like Atlas. Leave unset to use the system's default trust store.
+const MONGODB_TLS_CA_FILE = process.env.MONGODB_TLS_CA_FILE || undefined;
 
 if (!MONGODB_DB || !MONGODB_USER || !MONGODB_PASS || NODE_HOSTS.length === 0) {
   console.error('Missing MONGODB_DB / MONGODB_USER / MONGODB_PASS / MONGODB_NODE_HOSTS in .env');
+  process.exit(1);
+}
+if (MONGODB_TLS_CA_FILE && !fs.existsSync(MONGODB_TLS_CA_FILE)) {
+  console.error(`MONGODB_TLS_CA_FILE is set to "${MONGODB_TLS_CA_FILE}" but that file doesn't exist`);
   process.exit(1);
 }
 
@@ -38,8 +46,13 @@ const nodes = NODE_HOSTS.map((host, index) => ({
   shortName: shortNameFor(host, index),
   client: new MongoClient(
     `mongodb://${encodeURIComponent(MONGODB_USER)}:${encodeURIComponent(MONGODB_PASS)}@${host}/${MONGODB_DB}` +
-      `?directConnection=true&tls=true&authSource=admin&appName=NodeViewer-${index}`,
+      `?directConnection=true&authSource=admin&appName=NodeViewer-${index}`,
     {
+      tls: true,
+      // Passed as a client option rather than a URI query param, since a
+      // Windows file path (backslashes, drive letter, spaces) doesn't survive
+      // being embedded in a URI without extra encoding headaches.
+      ...(MONGODB_TLS_CA_FILE ? { tlsCAFile: MONGODB_TLS_CA_FILE } : {}),
       readPreference: 'secondaryPreferred',
       maxPoolSize: 10, // three separate node clients now instead of one — smaller pool each
       minPoolSize: 2,
