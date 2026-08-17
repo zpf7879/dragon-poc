@@ -8,6 +8,7 @@ const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB = process.env.MONGODB_DB;
+const MONGODB_TLS_CA_FILE = process.env.MONGODB_TLS_CA_FILE || undefined;
 const INTERVAL_MS = 4000;
 
 if (!MONGODB_URI || !MONGODB_DB) {
@@ -15,7 +16,9 @@ if (!MONGODB_URI || !MONGODB_DB) {
   process.exit(1);
 }
 
-const client = new MongoClient(MONGODB_URI);
+// Same CA handling as server.js — only needed for self-hosted clusters with
+// a private CA; harmless/no-op when unset (e.g. against Atlas).
+const client = new MongoClient(MONGODB_URI, MONGODB_TLS_CA_FILE ? { tlsCAFile: MONGODB_TLS_CA_FILE } : {});
 
 const CATEGORIES = ['A', 'B', 'C', 'D'];
 const STATUSES = ['completed', 'pending'];
