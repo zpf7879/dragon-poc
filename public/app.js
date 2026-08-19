@@ -143,8 +143,23 @@ function buildPanels(nodeList) {
       cardsWrap,
       snapshot: null, // Map(_id -> _lastActivityAt) from the previous poll, per collection switch
       collapsedIds, // Set(_id) of tablets folded shut, per collection switch
+      total: null, // last total document count this node reported, per collection switch
+      limit: null,
     };
   });
+}
+
+// Header-level summary of how many documents actually exist vs. how many
+// the feed is capped at. Nodes can disagree slightly under replication lag,
+// so use the largest total any node has reported so far as the best estimate.
+function updateHeaderMeta() {
+  const known = panels.filter((p) => p.total !== null);
+  if (known.length === 0) return;
+  const best = known.reduce((a, b) => (b.total > a.total ? b : a));
+  metaEl.textContent =
+    best.total > best.limit
+      ? `Only display latest ${best.limit} documents out of ${best.total} documents`
+      : `Showing all ${best.total} documents`;
 }
 
 async function pollNodeStatus(panel) {
@@ -182,6 +197,8 @@ async function pollNodeDocuments(panel) {
       }
     });
     panel.snapshot = next;
+    panel.total = total;
+    panel.limit = limit;
 
     panel.statusEl.textContent = '';
     panel.metaEl.textContent =
@@ -189,6 +206,7 @@ async function pollNodeDocuments(panel) {
         ? `${total} total documents — showing the ${returned} most recently active (top ${limit})`
         : `${total} total documents`;
     renderCards(panel.cardsWrap, documents, columns, changedIds, panel.collapsedIds);
+    updateHeaderMeta();
   } catch (err) {
     panel.statusEl.textContent = `Error: ${err.message}`;
   }
@@ -223,9 +241,12 @@ collectionSelect.addEventListener('change', (e) => {
   panels.forEach((p) => {
     p.snapshot = null; // don't blink the whole panel just because we switched views
     p.collapsedIds.clear(); // fold state belongs to the previous collection's docs
+    p.total = null; // header total belongs to the previous collection too
+    p.limit = null;
     p.cardsWrap.innerHTML = '';
     p.statusEl.textContent = `Loading "${currentCollection}"…`;
   });
+  metaEl.textContent = '';
   pollAll();
 });
 

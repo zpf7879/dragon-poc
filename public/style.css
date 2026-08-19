@@ -74,9 +74,18 @@ header button:focus-visible {
 }
 
 #meta {
-  color: var(--muted);
+  color: var(--ink);
   font-size: 0.85rem;
+  font-weight: 700;
   margin-left: auto;
+  padding: 0.3rem 0.7rem;
+  background: var(--accent-light);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+#meta:empty {
+  display: none;
 }
 
 #panels {
