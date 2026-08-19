@@ -29,6 +29,19 @@ function formatValue(value) {
   return escapeHtml(String(value));
 }
 
+// _id can be a compound/object key rather than a scalar. A single JSON blob
+// is hard to scan as a title, so spell out each of its fields as its own
+// labeled chip instead — same visual language as the field rows below it.
+function formatIdTitle(id) {
+  if (typeof id !== 'object' || id === null) return escapeHtml(String(id));
+  return Object.entries(id)
+    .map(([k, v]) => {
+      const text = v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+      return `<span class="id-field"><span class="id-field-key">${escapeHtml(k)}</span><span class="id-field-value">${escapeHtml(text)}</span></span>`;
+    })
+    .join('');
+}
+
 // Renders each document as a standalone "tablet": _id is always shown as the
 // card title (it's the row identity, so there's no point hiding it), while
 // every other field lives in a body that can be folded away per document.
@@ -68,7 +81,7 @@ function renderCards(cardsWrap, documents, columns, changedIds, collapsedIds) {
         <section class="doc-card${collapsed ? ' collapsed' : ''}${changedClass}" data-id="${escapeHtml(id)}">
           <button type="button" class="doc-card-header" aria-expanded="${!collapsed}">
             <span class="doc-card-chevron" aria-hidden="true"></span>
-            <span class="doc-card-title">${escapeHtml(id)}</span>
+            <span class="doc-card-title">${formatIdTitle(doc._id)}</span>
           </button>
           <div class="doc-card-body">${rows}</div>
         </section>`;

@@ -184,6 +184,24 @@ select:focus {
   font-weight: 700;
   font-family: monospace;
   overflow-wrap: anywhere;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.6rem;
+}
+
+/* Compound/object _id: one chip per field instead of a raw JSON blob. */
+.id-field {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.id-field-key {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.id-field-key::after {
+  content: ':';
 }
 
 .doc-card-body {
