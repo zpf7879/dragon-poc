@@ -7,7 +7,7 @@ const metaEl = document.getElementById('meta');
 const panelsEl = document.getElementById('panels');
 
 let currentCollection = null;
-let panels = []; // [{ index, host, el, statusEl, metaEl, cardsWrap, roleBadge, snapshot, collapsedIds, page, totalPages, prevBtn, nextBtn, pageInfoEl }]
+let panels = []; // [{ index, host, el, statusEl, metaEl, cardsWrap, roleBadge, snapshot, collapsedIds }]
 
 function escapeHtml(str) {
   return str
@@ -123,11 +123,6 @@ function buildPanels(nodeList) {
       <div class="panel-meta"></div>
       <div class="panel-status">Connecting…</div>
       <div class="panel-cards"></div>
-      <div class="panel-pagination">
-        <button type="button" class="page-prev" aria-label="Previous page">‹ Prev</button>
-        <span class="page-info"></span>
-        <button type="button" class="page-next" aria-label="Next page">Next ›</button>
-      </div>
     `;
     panelsEl.appendChild(el);
     const cardsWrap = el.querySelector('.panel-cards');
@@ -138,7 +133,7 @@ function buildPanels(nodeList) {
       const card = header.closest('.doc-card');
       setCardCollapsed(card, collapsedIds, !card.classList.contains('collapsed'));
     });
-    const panel = {
+    return {
       index: node.index,
       host: node.host,
       el,
@@ -148,23 +143,8 @@ function buildPanels(nodeList) {
       cardsWrap,
       snapshot: null, // Map(_id -> _lastActivityAt) from the previous poll, per collection switch
       collapsedIds, // Set(_id) of tablets folded shut, per collection switch
-      page: 1,
-      totalPages: 1,
-      prevBtn: el.querySelector('.page-prev'),
-      nextBtn: el.querySelector('.page-next'),
-      pageInfoEl: el.querySelector('.page-info'),
     };
-    panel.prevBtn.addEventListener('click', () => goToPage(panel, panel.page - 1));
-    panel.nextBtn.addEventListener('click', () => goToPage(panel, panel.page + 1));
-    return panel;
   });
-}
-
-function goToPage(panel, page) {
-  const clamped = Math.min(Math.max(1, page), panel.totalPages);
-  if (clamped === panel.page) return;
-  panel.page = clamped;
-  pollNodeDocuments(panel);
 }
 
 async function pollNodeStatus(panel) {
@@ -182,15 +162,13 @@ async function pollNodeDocuments(panel) {
   const name = currentCollection;
 
   try {
-    const res = await fetch(
-      `/api/nodes/${panel.index}/collections/${encodeURIComponent(name)}/documents?page=${panel.page}`
-    );
+    const res = await fetch(`/api/nodes/${panel.index}/collections/${encodeURIComponent(name)}/documents`);
     if (name !== currentCollection) return; // collection changed while in flight
     if (!res.ok) {
       panel.statusEl.textContent = `Failed to load "${name}" from this node.`;
       return;
     }
-    const { documents, total, returned, page, pageSize, totalPages, columns } = await res.json();
+    const { documents, total, returned, limit, columns } = await res.json();
     if (name !== currentCollection) return;
 
     const previous = panel.snapshot; // null on first load for this collection
@@ -205,21 +183,12 @@ async function pollNodeDocuments(panel) {
     });
     panel.snapshot = next;
 
-    panel.page = page;
-    panel.totalPages = totalPages;
-    const first = returned === 0 ? 0 : (page - 1) * pageSize + 1;
-    const last = (page - 1) * pageSize + returned;
-
     panel.statusEl.textContent = '';
-    panel.metaEl.textContent = `${total} total documents — showing ${first}-${last}`;
-    panel.pageInfoEl.textContent = `Page ${page} of ${totalPages}`;
-    panel.prevBtn.disabled = page <= 1;
-    panel.nextBtn.disabled = page >= totalPages;
+    panel.metaEl.textContent =
+      returned < total
+        ? `${total} total documents — showing the ${returned} most recently active (top ${limit})`
+        : `${total} total documents`;
     renderCards(panel.cardsWrap, documents, columns, changedIds, panel.collapsedIds);
-
-    // Total shrank (e.g. docs deleted) below the requested page — snap back
-    // to the new last page instead of showing an empty panel indefinitely.
-    if (page > totalPages) goToPage(panel, totalPages);
   } catch (err) {
     panel.statusEl.textContent = `Error: ${err.message}`;
   }
@@ -254,12 +223,7 @@ collectionSelect.addEventListener('change', (e) => {
   panels.forEach((p) => {
     p.snapshot = null; // don't blink the whole panel just because we switched views
     p.collapsedIds.clear(); // fold state belongs to the previous collection's docs
-    p.page = 1; // paging belongs to the previous collection's result set too
-    p.totalPages = 1;
     p.cardsWrap.innerHTML = '';
-    p.pageInfoEl.textContent = '';
-    p.prevBtn.disabled = true;
-    p.nextBtn.disabled = true;
     p.statusEl.textContent = `Loading "${currentCollection}"…`;
   });
   pollAll();

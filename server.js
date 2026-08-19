@@ -64,8 +64,7 @@ const nodes = NODE_HOSTS.map((host, index) => ({
   ),
 }));
 
-const DEFAULT_PAGE_SIZE = 50;
-const MAX_PAGE_SIZE = 200; // clamp client-supplied pageSize to keep the UI responsive
+const DOC_LIMIT = 50; // cap rows returned per collection to keep the UI responsive
 
 // Per-collection display config lives in collection-config.json (gitignored —
 // see collection-config.example.json for the shape), not in source, since
@@ -85,15 +84,6 @@ if (fs.existsSync(CONFIG_PATH)) {
 }
 const ACTIVITY_FIELDS = collectionConfig.activityFields || {};
 const DISPLAY_FIELDS = collectionConfig.displayFields || {};
-
-// Parses a positive-integer query param, falling back to `fallback` for
-// anything absent, non-numeric, or out of [1, max] — never trusts client
-// input to already be well-formed.
-function parsePositiveInt(value, fallback, max) {
-  const n = Number.parseInt(value, 10);
-  if (!Number.isFinite(n) || n < 1) return fallback;
-  return max ? Math.min(n, max) : n;
-}
 
 function findNode(indexParam) {
   const index = Number(indexParam);
@@ -159,29 +149,27 @@ app.get('/api/nodes/:index/collections/:name/documents', async (req, res) => {
     // client falls back to showing every field it gets back.
     const columns = displayFields ? [{ key: '_lastActivityAt', label: 'Last activity' }, ...displayFields] : null;
 
-    const pageSize = parsePositiveInt(req.query.pageSize, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
-    const page = parsePositiveInt(req.query.page, 1);
-
     const pipeline = [
       {
         $addFields: {
-          // $max ignores null/missing candidates. Candidates: the ObjectId's
-          // embedded creation time (falls back to null via $convert's
-          // onError/onNull for collections with non-ObjectId _id values,
-          // which $toDate can't convert), window_end (set on stream-processing
-          // output docs), and any collection-specific activity fields.
+          // $max ignores null/missing candidates. Candidates, newest wins:
+          // window_end (set on stream-processing output docs — the primary
+          // signal for those collections), any collection-specific activity
+          // fields, and the ObjectId's embedded creation time as a universal
+          // fallback (falls back to null via $convert's onError/onNull for
+          // collections with non-ObjectId _id values, which $toDate can't
+          // convert).
           _lastActivityAt: {
             $max: [
-              { $convert: { input: '$_id', to: 'date', onError: null, onNull: null } },
               '$window_end',
               ...activityFields.map((f) => `$${f}`),
+              { $convert: { input: '$_id', to: 'date', onError: null, onNull: null } },
             ],
           },
         },
       },
       { $sort: { _lastActivityAt: -1 } },
-      { $skip: (page - 1) * pageSize },
-      { $limit: pageSize },
+      { $limit: DOC_LIMIT },
     ];
     if (columns) {
       // Trim to just the id (needed client-side to track row identity) plus
@@ -194,15 +182,7 @@ app.get('/api/nodes/:index/collections/:name/documents', async (req, res) => {
       db.collection(req.params.name).estimatedDocumentCount(),
     ]);
 
-    res.json({
-      documents,
-      total,
-      returned: documents.length,
-      page,
-      pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
-      columns,
-    });
+    res.json({ documents, total, returned: documents.length, limit: DOC_LIMIT, columns });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch documents from this node' });
