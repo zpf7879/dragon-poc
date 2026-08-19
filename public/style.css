@@ -151,6 +151,42 @@ header button:focus-visible {
   font-size: 0.8rem;
 }
 
+.panel-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.panel-pagination button {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.panel-pagination button:hover:not(:disabled) {
+  background: var(--accent-light);
+}
+
+.panel-pagination button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.page-info {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .panel-cards {
   overflow: auto;
   padding: 0.6rem;
