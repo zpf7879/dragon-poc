@@ -152,9 +152,18 @@ app.get('/api/nodes/:index/collections/:name/documents', async (req, res) => {
     const pipeline = [
       {
         $addFields: {
-          // $max ignores null/missing candidates, and $toDate on an ObjectId
-          // yields its embedded creation time, so this is always well-defined.
-          _lastActivityAt: { $max: [{ $toDate: '$_id' }, ...activityFields.map((f) => `$${f}`)] },
+          // $max ignores null/missing candidates. Candidates: the ObjectId's
+          // embedded creation time (falls back to null via $convert's
+          // onError/onNull for collections with non-ObjectId _id values,
+          // which $toDate can't convert), window_end (set on stream-processing
+          // output docs), and any collection-specific activity fields.
+          _lastActivityAt: {
+            $max: [
+              { $convert: { input: '$_id', to: 'date', onError: null, onNull: null } },
+              '$window_end',
+              ...activityFields.map((f) => `$${f}`),
+            ],
+          },
         },
       },
       { $sort: { _lastActivityAt: -1 } },
