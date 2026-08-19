@@ -1,6 +1,8 @@
 const POLL_INTERVAL_MS = 5000;
 
 const collectionSelect = document.getElementById('collectionSelect');
+const foldAllBtn = document.getElementById('foldAllBtn');
+const unfoldAllBtn = document.getElementById('unfoldAllBtn');
 const metaEl = document.getElementById('meta');
 const panelsEl = document.getElementById('panels');
 
@@ -94,6 +96,20 @@ function setRoleBadge(badgeEl, role) {
   badgeEl.className = `role-badge role-${role.toLowerCase()}`;
 }
 
+// Toggles a single already-rendered card and keeps collapsedIds (which
+// survives across polls) in sync with the DOM.
+function setCardCollapsed(card, collapsedIds, collapsed) {
+  const header = card.querySelector('.doc-card-header');
+  card.classList.toggle('collapsed', collapsed);
+  header.setAttribute('aria-expanded', String(!collapsed));
+  if (collapsed) collapsedIds.add(card.dataset.id);
+  else collapsedIds.delete(card.dataset.id);
+}
+
+function setPanelCollapsed(panel, collapsed) {
+  panel.cardsWrap.querySelectorAll('.doc-card').forEach((card) => setCardCollapsed(card, panel.collapsedIds, collapsed));
+}
+
 function buildPanels(nodeList) {
   panelsEl.innerHTML = '';
   panels = nodeList.map((node) => {
@@ -115,11 +131,7 @@ function buildPanels(nodeList) {
       const header = e.target.closest('.doc-card-header');
       if (!header) return;
       const card = header.closest('.doc-card');
-      const id = card.dataset.id;
-      const collapsed = card.classList.toggle('collapsed');
-      header.setAttribute('aria-expanded', String(!collapsed));
-      if (collapsed) collapsedIds.add(id);
-      else collapsedIds.delete(id);
+      setCardCollapsed(card, collapsedIds, !card.classList.contains('collapsed'));
     });
     return {
       index: node.index,
@@ -213,6 +225,9 @@ collectionSelect.addEventListener('change', (e) => {
   });
   pollAll();
 });
+
+foldAllBtn.addEventListener('click', () => panels.forEach((p) => setPanelCollapsed(p, true)));
+unfoldAllBtn.addEventListener('click', () => panels.forEach((p) => setPanelCollapsed(p, false)));
 
 (async () => {
   await loadNodes();

@@ -48,6 +48,25 @@ select:focus {
   outline: 2px solid var(--accent);
 }
 
+header button {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+header button:hover {
+  background: var(--accent-light);
+}
+
+header button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
 #liveIndicator {
   color: var(--accent);
   font-size: 0.8rem;
