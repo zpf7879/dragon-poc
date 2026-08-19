@@ -5,7 +5,7 @@ const metaEl = document.getElementById('meta');
 const panelsEl = document.getElementById('panels');
 
 let currentCollection = null;
-let panels = []; // [{ index, host, el, statusEl, metaEl, tableWrap, roleBadge, snapshot }]
+let panels = []; // [{ index, host, el, statusEl, metaEl, cardsWrap, roleBadge, snapshot, collapsedIds }]
 
 function escapeHtml(str) {
   return str
@@ -16,35 +16,56 @@ function escapeHtml(str) {
 }
 
 function formatValue(value) {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'object') return escapeHtml(JSON.stringify(value));
+  if (value === null || value === undefined) return '<span class="field-empty">—</span>';
+  if (typeof value === 'object') return `<pre class="field-json">${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
   return escapeHtml(String(value));
 }
 
-function renderTable(tableWrap, documents, columns, changedIds) {
+// Renders each document as a standalone "tablet": _id is always shown as the
+// card title (it's the row identity, so there's no point hiding it), while
+// every other field lives in a body that can be folded away per document.
+// collapsedIds persists fold state across polls so a 5s refresh doesn't snap
+// a folded card back open.
+function renderCards(cardsWrap, documents, columns, changedIds, collapsedIds) {
   if (documents.length === 0) {
-    tableWrap.innerHTML = '<p>No documents.</p>';
+    cardsWrap.innerHTML = '<p>No documents.</p>';
     return;
   }
 
   // Server sends columns=null for collections with no display config — fall
-  // back to the union of whatever top-level keys are present.
-  if (!columns) {
-    const keys = new Set(['_lastActivityAt', '_id']);
-    documents.forEach((doc) => Object.keys(doc).forEach((k) => keys.add(k)));
-    columns = Array.from(keys).map((k) => ({ key: k, label: k === '_lastActivityAt' ? 'Last activity' : k }));
+  // back to the union of whatever top-level keys are present (minus _id,
+  // which is rendered separately as the title).
+  let fields = columns ? columns.filter((c) => c.key !== '_id') : null;
+  if (!fields) {
+    const keys = new Set(['_lastActivityAt']);
+    documents.forEach((doc) => Object.keys(doc).forEach((k) => k !== '_id' && keys.add(k)));
+    fields = Array.from(keys).map((k) => ({ key: k, label: k === '_lastActivityAt' ? 'Last activity' : k }));
   }
 
-  const thead = `<thead><tr>${columns.map((c) => `<th>${escapeHtml(c.label)}</th>`).join('')}</tr></thead>`;
-  const rows = documents
+  cardsWrap.innerHTML = documents
     .map((doc) => {
-      const rowClass = changedIds.has(doc._id) ? ' class="row-changed"' : '';
-      const cells = columns.map((c) => `<td>${formatValue(doc[c.key])}</td>`).join('');
-      return `<tr${rowClass}>${cells}</tr>`;
+      const id = String(doc._id);
+      const collapsed = collapsedIds.has(id);
+      const changedClass = changedIds.has(doc._id) ? ' card-changed' : '';
+      const rows = fields
+        .map(
+          (c) => `
+            <div class="field-row">
+              <div class="field-key">${escapeHtml(c.label)}</div>
+              <div class="field-value">${formatValue(doc[c.key])}</div>
+            </div>`
+        )
+        .join('');
+      return `
+        <section class="doc-card${collapsed ? ' collapsed' : ''}${changedClass}" data-id="${escapeHtml(id)}">
+          <button type="button" class="doc-card-header" aria-expanded="${!collapsed}">
+            <span class="doc-card-chevron" aria-hidden="true"></span>
+            <span class="doc-card-title">${escapeHtml(id)}</span>
+          </button>
+          <div class="doc-card-body">${rows}</div>
+        </section>`;
     })
     .join('');
-
-  tableWrap.innerHTML = `<table>${thead}<tbody>${rows}</tbody></table>`;
 }
 
 function setRoleBadge(badgeEl, role) {
@@ -64,9 +85,21 @@ function buildPanels(nodeList) {
       </div>
       <div class="panel-meta"></div>
       <div class="panel-status">Connecting…</div>
-      <div class="panel-table"></div>
+      <div class="panel-cards"></div>
     `;
     panelsEl.appendChild(el);
+    const cardsWrap = el.querySelector('.panel-cards');
+    const collapsedIds = new Set();
+    cardsWrap.addEventListener('click', (e) => {
+      const header = e.target.closest('.doc-card-header');
+      if (!header) return;
+      const card = header.closest('.doc-card');
+      const id = card.dataset.id;
+      const collapsed = card.classList.toggle('collapsed');
+      header.setAttribute('aria-expanded', String(!collapsed));
+      if (collapsed) collapsedIds.add(id);
+      else collapsedIds.delete(id);
+    });
     return {
       index: node.index,
       host: node.host,
@@ -74,8 +107,9 @@ function buildPanels(nodeList) {
       roleBadge: el.querySelector('.role-badge'),
       metaEl: el.querySelector('.panel-meta'),
       statusEl: el.querySelector('.panel-status'),
-      tableWrap: el.querySelector('.panel-table'),
+      cardsWrap,
       snapshot: null, // Map(_id -> _lastActivityAt) from the previous poll, per collection switch
+      collapsedIds, // Set(_id) of tablets folded shut, per collection switch
     };
   });
 }
@@ -117,7 +151,7 @@ async function pollNodeDocuments(panel) {
 
     panel.statusEl.textContent = '';
     panel.metaEl.textContent = `${returned} of ~${total} (limit ${limit})`;
-    renderTable(panel.tableWrap, documents, columns, changedIds);
+    renderCards(panel.cardsWrap, documents, columns, changedIds, panel.collapsedIds);
   } catch (err) {
     panel.statusEl.textContent = `Error: ${err.message}`;
   }
@@ -151,7 +185,8 @@ collectionSelect.addEventListener('change', (e) => {
   currentCollection = e.target.value;
   panels.forEach((p) => {
     p.snapshot = null; // don't blink the whole panel just because we switched views
-    p.tableWrap.innerHTML = '';
+    p.collapsedIds.clear(); // fold state belongs to the previous collection's docs
+    p.cardsWrap.innerHTML = '';
     p.statusEl.textContent = `Loading "${currentCollection}"…`;
   });
   pollAll();

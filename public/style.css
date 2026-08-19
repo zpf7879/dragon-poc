@@ -132,44 +132,113 @@ select:focus {
   font-size: 0.8rem;
 }
 
-.panel-table {
+.panel-cards {
   overflow: auto;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
-table {
-  border-collapse: collapse;
-  width: 100%;
+.doc-card {
   background: var(--surface);
-  font-size: 0.78rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-th, td {
-  border: 1px solid var(--border);
-  padding: 0.35rem 0.5rem;
+.doc-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  background: var(--accent-light);
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
   text-align: left;
-  vertical-align: top;
-  max-width: 220px;
+}
+
+.doc-card-header:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.doc-card-chevron {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-right: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.doc-card.collapsed .doc-card-chevron {
+  transform: rotate(-45deg);
+}
+
+.doc-card-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: monospace;
   overflow-wrap: anywhere;
 }
 
-th {
-  background: var(--accent-light);
-  color: var(--ink);
-  position: sticky;
-  top: 0;
+.doc-card-body {
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
-tr:nth-child(even) td {
-  background: #f6f9fe;
+.doc-card.collapsed .doc-card-body {
+  display: none;
 }
 
-/* Newly inserted/updated rows blink for a few seconds, then settle. */
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 40%) 1fr;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.35rem;
+}
+
+.field-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.field-key {
+  color: var(--muted);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.field-value {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.field-empty {
+  color: var(--muted);
+}
+
+.field-json {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.85em;
+}
+
+/* Newly inserted/updated docs blink for a few seconds, then settle. */
 @keyframes blink-highlight {
   0%, 100% { background-color: transparent; }
   50% { background-color: #ffe066; }
 }
 
-tr.row-changed td {
+.doc-card.card-changed .doc-card-header {
   animation: blink-highlight 0.6s ease-in-out 5; /* 5 x 0.6s = 3s total */
 }
 
