@@ -15,6 +15,14 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+// _id isn't guaranteed to be a primitive (some collections use compound/object
+// _id values) — String(obj) collapses every such doc to "[object Object]",
+// and using the raw object as a Map/Set key never matches across polls since
+// each fetch().json() call parses a fresh object. Use a stable string instead.
+function idKey(id) {
+  return typeof id === 'object' && id !== null ? JSON.stringify(id) : String(id);
+}
+
 function formatValue(value) {
   if (value === null || value === undefined) return '<span class="field-empty">—</span>';
   if (typeof value === 'object') return `<pre class="field-json">${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
@@ -44,9 +52,9 @@ function renderCards(cardsWrap, documents, columns, changedIds, collapsedIds) {
 
   cardsWrap.innerHTML = documents
     .map((doc) => {
-      const id = String(doc._id);
+      const id = idKey(doc._id);
       const collapsed = collapsedIds.has(id);
-      const changedClass = changedIds.has(doc._id) ? ' card-changed' : '';
+      const changedClass = changedIds.has(id) ? ' card-changed' : '';
       const rows = fields
         .map(
           (c) => `
@@ -142,9 +150,10 @@ async function pollNodeDocuments(panel) {
     const changedIds = new Set();
     const next = new Map();
     documents.forEach((doc) => {
-      next.set(doc._id, doc._lastActivityAt);
-      if (previous && previous.get(doc._id) !== doc._lastActivityAt) {
-        changedIds.add(doc._id);
+      const id = idKey(doc._id);
+      next.set(id, doc._lastActivityAt);
+      if (previous && previous.get(id) !== doc._lastActivityAt) {
+        changedIds.add(id);
       }
     });
     panel.snapshot = next;
